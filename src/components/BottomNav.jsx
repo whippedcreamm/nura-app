@@ -5,7 +5,7 @@ const navItems = [
   { path: '/prayer', label: 'Prayer', icon: '🕌' },
   { path: '/quran', label: "Qur'an", icon: '📖' },
   { path: '/cycle', label: 'Cycle', icon: '🌸' },
-  { path: '/dhikr', label: 'Dhikr', icon: '📿' },
+  { path: '/worship', label: 'Worship', icon: '🤲' },
 ]
 
 function BottomNav() {

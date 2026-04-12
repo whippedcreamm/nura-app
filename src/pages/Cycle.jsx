@@ -41,7 +41,7 @@ const flows = ['Spotting', 'Light', 'Medium', 'Heavy']
 
 function Cycle() {
   const [currentDate] = useState(new Date())
-  const [selectedDay, setSelectedDay] = useState(null)
+  const [selectedDay, setSelectedDay] = useState(new Date().getDate())
   const [cycleStart] = useState(1)
   const [cycleLength] = useState(28)
   const [periodLength] = useState(7)

@@ -24,6 +24,23 @@ const getDailySurah = () => {
   return surahList[seed % surahList.length]
 }
 
+const getTodayReminder = (hijri) => {
+  const day = parseInt(hijri.day)
+  const month = parseInt(hijri.month.number)
+  const weekday = new Date().getDay()
+
+  if (day === 1 && month === 10) return '🎉 Eid al-Fitr — no fasting today'
+  if (day === 10 && month === 12) return '🎉 Eid al-Adha — no fasting today'
+  if ([11, 12, 13].includes(day) && month === 12) return '🚫 Ayyam al-Tashriq — fasting is prohibited'
+  if ([13, 14, 15].includes(day)) return '🌙 Ayyamul Bidh — recommended fasting today'
+  if (day === 10 && month === 1) return '✨ Ashura — highly recommended fasting today'
+  if (day === 9 && month === 12) return '✨ Arafah — highly recommended fasting today'
+  if (month === 10 && day <= 6) return "🌙 Syawal fasting — 6 days for a full year's reward"
+  if (weekday === 1) return '🌙 Monday — recommended fasting day'
+  if (weekday === 4) return '🌙 Thursday — recommended fasting day'
+  return '🤲 May your day be filled with barakah'
+}
+
 function Dashboard() {
   const [prayerTimes, setPrayerTimes] = useState(null)
   const [nextPrayer, setNextPrayer] = useState(null)
@@ -89,6 +106,10 @@ function Dashboard() {
   })
 
   const dailySurah = getDailySurah()
+  const streakDays = 5
+  const worshipChecked = 3
+  const worshipTotal = 7
+  const worshipProgress = worshipTotal > 0 ? (worshipChecked / worshipTotal) * 100 : 0
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -97,9 +118,14 @@ function Dashboard() {
         <h1 className="text-white text-2xl font-semibold mt-1">Nura</h1>
         <p className="text-[#B2D8D4] text-sm mt-1">{today}</p>
         {hijriDate && (
-          <p className="text-[#B2D8D4] text-sm">
-            {hijriDate.day} {hijriDate.month.en} {hijriDate.year} H
-          </p>
+          <>
+            <p className="text-[#B2D8D4] text-sm">
+              {hijriDate.day} {hijriDate.month.en} {hijriDate.year} H
+            </p>
+            <p className="text-white/80 text-xs mt-3 bg-white/10 px-3 py-1.5 rounded-full inline-block">
+              {getTodayReminder(hijriDate)}
+            </p>
+          </>
         )}
       </div>
 
@@ -123,50 +149,41 @@ function Dashboard() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-xs text-gray-400 uppercase tracking-wide">Today's prayers</p>
-            <p className="text-xs text-[#4FA095] font-medium">0 / 5</p>
-          </div>
-          <div className="flex justify-between">
-            {prayers.map((prayer) => (
-              <div key={prayer} className="flex flex-col items-center gap-2">
-                <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center">
-                  <span className="text-gray-300 text-sm">○</span>
-                </div>
-                <span className="text-xs text-gray-400">{prayer.slice(0, 3)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
           <div className="grid grid-cols-2 divide-x divide-gray-100">
             <div className="pr-4">
               <div className="flex items-center justify-between mb-3">
-                <p className="text-xs text-gray-400 uppercase tracking-wide">Dhikr</p>
-                <p className="text-xs text-[#4FA095] font-medium">0 / 6</p>
+                <p className="text-xs text-gray-400 uppercase tracking-wide">Prayers</p>
+                <p className="text-xs text-[#4FA095] font-medium">0 / 5</p>
               </div>
-              <div className="w-full bg-gray-100 rounded-full h-1.5">
-                <div className="bg-[#4FA095] h-1.5 rounded-full" style={{ width: '0%' }} />
-              </div>
-              <p className="text-xs text-gray-400 mt-2">No dhikr yet</p>
-            </div>
-            <div className="pl-4">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-xs text-gray-400 uppercase tracking-wide">Sunnah</p>
-                <p className="text-xs text-[#4FA095] font-medium">0 / 3</p>
-              </div>
-              <div className="flex gap-2 mt-1">
-                {['Dhuha', 'Tahajud', 'Rawatib'].map((s) => (
-                  <div key={s} className="flex flex-col items-center gap-1">
+              <div className="flex justify-between">
+                {prayers.map((prayer) => (
+                  <div key={prayer} className="flex flex-col items-center gap-1.5">
                     <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center">
                       <span className="text-gray-300 text-xs">○</span>
                     </div>
-                    <span className="text-xs text-gray-400">{s.slice(0, 3)}</span>
+                    <span className="text-xs text-gray-400">{prayer.slice(0, 3)}</span>
                   </div>
                 ))}
               </div>
             </div>
+            <div className="pl-4 flex flex-col justify-center items-center">
+              <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">Streak</p>
+              <p className="text-3xl font-semibold text-[#4FA095]">{streakDays}</p>
+              <p className="text-xs text-gray-400 mt-1">days in a row</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs text-gray-400 uppercase tracking-wide">Daily worship</p>
+            <p className="text-xs text-[#4FA095] font-medium">{worshipChecked} / {worshipTotal}</p>
+          </div>
+          <div className="w-full bg-gray-100 rounded-full h-1.5">
+            <div
+              className="bg-[#4FA095] h-1.5 rounded-full transition-all duration-500"
+              style={{ width: `${worshipProgress}%` }}
+            />
           </div>
         </div>
 
@@ -186,18 +203,18 @@ function Dashboard() {
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
           <p className="text-xs text-gray-400 uppercase tracking-wide mb-3">Surah of the day</p>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-full bg-[#4FA095]/10 flex items-center justify-center">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-full bg-[#4FA095]/10 flex items-center justify-center shrink-0">
                 <span className="text-sm font-medium text-[#4FA095]">{dailySurah.id}</span>
               </div>
-<div>
-  <p className="text-sm font-medium text-gray-800">{dailySurah.name}</p>
-  <p className="text-xs text-gray-400">{dailySurah.verses} verses</p>
-  <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">{dailySurah.description}</p>
-</div>
+              <div>
+                <p className="text-sm font-medium text-gray-800">{dailySurah.name}</p>
+                <p className="text-xs text-gray-400">{dailySurah.verses} verses</p>
+                <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">{dailySurah.description}</p>
+              </div>
             </div>
-            <p className="text-lg text-gray-700">{dailySurah.arabic}</p>
+            <p className="text-lg text-gray-700 shrink-0">{dailySurah.arabic}</p>
           </div>
         </div>
 

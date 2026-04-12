@@ -4,7 +4,7 @@ import Dashboard from './pages/Dashboard'
 import Prayer from './pages/Prayer'
 import Quran from './pages/Quran'
 import Cycle from './pages/Cycle'
-import Dhikr from './pages/Dhikr'
+import Worship from './pages/Worship'
 
 function App() {
   return (
@@ -15,7 +15,7 @@ function App() {
           <Route path="/prayer" element={<Prayer />} />
           <Route path="/quran" element={<Quran />} />
           <Route path="/cycle" element={<Cycle />} />
-          <Route path="/dhikr" element={<Dhikr />} />
+          <Route path="/worship" element={<Worship />} />
         </Routes>
         <BottomNav />
       </div>
