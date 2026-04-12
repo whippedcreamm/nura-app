@@ -6,6 +6,14 @@ function Prayer() {
   const [loading, setLoading] = useState(true)
   const [coords, setCoords] = useState(null)
   const [selectedDate, setSelectedDate] = useState(new Date())
+  const [checked, setChecked] = useState({
+    Fajr: false,
+    Dhuhr: false,
+    Asr: false,
+    Maghrib: false,
+    Isha: false,
+  })
+  const [toast, setToast] = useState(null)
 
   const displayPrayers = [
     { key: 'Fajr', label: 'Fajr' },
@@ -17,12 +25,22 @@ function Prayer() {
     { key: 'Midnight', label: 'Midnight' },
   ]
 
+  const trackablePrayers = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha']
+
+ const getToastMessage = (count) => {
+  if (count === 1) return 'Alhamdulillah! Keep it up 🤲'
+  if (count === 2) return 'MasyaAllah, 2 down! 🌿'
+  if (count === 3) return 'Halfway there, barakallahu fiik!'
+  if (count === 4) return 'Almost complete, subhanallah!'
+  if (count === 5) return 'Alhamdulillah, all 5 prayers done today! 🌟'
+  return null
+}
+
   const fetchPrayerTimes = async (latitude, longitude, date) => {
     setLoading(true)
     const day = date.getDate()
     const month = date.getMonth() + 1
     const year = date.getFullYear()
-
     const res = await fetch(
       `https://api.aladhan.com/v1/timings/${day}-${month}-${year}?latitude=${latitude}&longitude=${longitude}&method=13`
     )
@@ -57,7 +75,7 @@ function Prayer() {
       weekday: 'long',
       day: 'numeric',
       month: 'long',
-      year: 'numeric'
+      year: 'numeric',
     })
   }
 
@@ -65,9 +83,8 @@ function Prayer() {
     if (!prayerTimes) return null
     const now = new Date()
     const currentTime = now.getHours() * 60 + now.getMinutes()
-    const prayerKeys = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha']
     let current = null
-    for (const key of prayerKeys) {
+    for (const key of trackablePrayers) {
       const [h, m] = prayerTimes[key].split(':').map(Number)
       if (h * 60 + m <= currentTime) current = key
     }
@@ -75,9 +92,20 @@ function Prayer() {
   }
 
   const currentPrayer = isToday ? getCurrentPrayer() : null
+  const checkedCount = Object.values(checked).filter(Boolean).length
+
+  const toggle = (key) => {
+  setChecked((prev) => {
+    const updated = { ...prev, [key]: !prev[key] }
+    const count = Object.values(updated).filter(Boolean).length
+    setToast(count > 0 ? getToastMessage(count) : null)
+    return updated
+  })
+}
 
   return (
     <div className="min-h-screen bg-gray-50">
+
       <div className="bg-[#4FA095] px-6 pt-12 pb-8">
         <h1 className="text-white text-2xl font-semibold">Prayer Times</h1>
         {hijriDate && (
@@ -87,12 +115,13 @@ function Prayer() {
         )}
       </div>
 
-      <div className="px-4 -mt-4">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
+      <div className="px-4 -mt-4 space-y-4">
+
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
           <div className="flex items-center justify-between">
             <button
               onClick={() => changeDate(-1)}
-              className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 text-sm"
+              className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500"
             >
               ‹
             </button>
@@ -106,14 +135,49 @@ function Prayer() {
             </div>
             <button
               onClick={() => changeDate(1)}
-              className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 text-sm"
+              className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500"
             >
               ›
             </button>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-4">
+        {isToday && (
+  <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+    <div className="flex items-center justify-between mb-4">
+      <p className="text-xs text-gray-400 uppercase tracking-wide">Prayer tracker</p>
+      <p className="text-xs text-[#4FA095] font-medium">{checkedCount} / 5</p>
+    </div>
+    <div className="flex justify-between">
+      {trackablePrayers.map((prayer) => (
+        <button
+          key={prayer}
+          onClick={() => toggle(prayer)}
+          className="flex flex-col items-center gap-2"
+        >
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90 ${
+            checked[prayer]
+              ? 'bg-[#4FA095] text-white'
+              : 'bg-gray-100 text-gray-300'
+          }`}>
+            {checked[prayer] ? (
+              <span className="text-sm">✓</span>
+            ) : (
+              <span className="text-sm">○</span>
+            )}
+          </div>
+          <span className="text-xs text-gray-400">{prayer.slice(0, 3)}</span>
+        </button>
+      ))}
+    </div>
+    {toast && (
+      <p className="text-sm text-[#4FA095] font-medium mt-4 text-center">{toast}</p>
+    )}
+  </div>
+)}
+
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+          <p className="text-xs text-gray-400 uppercase tracking-wide mb-3">Schedule</p>
           {loading ? (
             <p className="text-gray-400 text-sm text-center py-4">Loading prayer times...</p>
           ) : prayerTimes ? (
@@ -123,13 +187,13 @@ function Prayer() {
                 return (
                   <div
                     key={prayer.key}
-                    className={`flex items-center justify-between px-3 py-3 rounded-xl transition-colors ${
+                    className={`flex items-center justify-between px-3 py-3 rounded-xl ${
                       isActive ? 'bg-[#4FA095]/10' : ''
                     }`}
                   >
                     <div className="flex items-center gap-3">
                       {isActive && (
-                        <div className="w-1.5 h-6 bg-[#4FA095] rounded-full" />
+                        <div className="w-1.5 h-5 bg-[#4FA095] rounded-full" />
                       )}
                       <span className={`text-sm font-medium ${
                         isActive ? 'text-[#4FA095]' : 'text-gray-700'
@@ -152,7 +216,10 @@ function Prayer() {
             </p>
           )}
         </div>
+
       </div>
+
+      <div className="h-8" />
     </div>
   )
 }
