@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react'
+import { supabase } from '../lib/supabase'
+import { useAuth } from '../lib/useAuth'
 
 function Prayer() {
+  const { isGuest, userId } = useAuth()
   const [prayerTimes, setPrayerTimes] = useState(null)
   const [hijriDate, setHijriDate] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -27,14 +30,88 @@ function Prayer() {
 
   const trackablePrayers = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha']
 
- const getToastMessage = (count) => {
-  if (count === 1) return 'Alhamdulillah! Keep it up 🤲'
-  if (count === 2) return 'MasyaAllah, 2 down! 🌿'
-  if (count === 3) return 'Halfway there, barakallahu fiik!'
-  if (count === 4) return 'Almost complete, subhanallah!'
-  if (count === 5) return 'Alhamdulillah, all 5 prayers done today! 🌟'
-  return null
-}
+  const todayKey = () => {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+
+  const getToastMessage = (count) => {
+    if (count === 1) return 'Alhamdulillah! Keep it up 🤲'
+    if (count === 2) return 'MasyaAllah, 2 down! 🌿'
+    if (count === 3) return 'Halfway there, barakallahu fiik!'
+    if (count === 4) return 'Almost complete, subhanallah!'
+    if (count === 5) return 'Alhamdulillah, all 5 prayers done today! 🌟'
+    return null
+  }
+
+  const loadChecked = async () => {
+    if (isGuest) {
+      const saved = localStorage.getItem(`nura_prayer_${todayKey()}`)
+      if (saved) setChecked(JSON.parse(saved))
+    } else if (userId) {
+      const today = todayKey()
+      const { data, error } = await supabase
+        .from('prayer_logs')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('date', today)
+        .maybeSingle()
+      console.log('loadChecked:', data, error)
+      if (data) {
+        setChecked({
+          Fajr: data.fajr,
+          Dhuhr: data.dhuhr,
+          Asr: data.asr,
+          Maghrib: data.maghrib,
+          Isha: data.isha,
+        })
+      }
+    }
+  }
+
+  const saveChecked = async (updated) => {
+    if (isGuest) {
+      localStorage.setItem(`nura_prayer_${todayKey()}`, JSON.stringify(updated))
+    } else if (userId) {
+      const today = todayKey()
+
+      const { data: existing, error: fetchError } = await supabase
+        .from('prayer_logs')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('date', today)
+        .maybeSingle()
+
+      console.log('existing:', existing, 'fetchError:', fetchError)
+
+      if (existing) {
+        const { error: updateError } = await supabase
+          .from('prayer_logs')
+          .update({
+            fajr: updated.Fajr,
+            dhuhr: updated.Dhuhr,
+            asr: updated.Asr,
+            maghrib: updated.Maghrib,
+            isha: updated.Isha,
+          })
+          .eq('id', existing.id)
+        console.log('updateError:', updateError)
+      } else {
+        const { error: insertError } = await supabase
+          .from('prayer_logs')
+          .insert({
+            user_id: userId,
+            date: today,
+            fajr: updated.Fajr,
+            dhuhr: updated.Dhuhr,
+            asr: updated.Asr,
+            maghrib: updated.Maghrib,
+            isha: updated.Isha,
+          })
+        console.log('insertError:', insertError)
+      }
+    }
+  }
 
   const fetchPrayerTimes = async (latitude, longitude, date) => {
     setLoading(true)
@@ -51,6 +128,7 @@ function Prayer() {
   }
 
   useEffect(() => {
+    loadChecked()
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords
@@ -59,7 +137,7 @@ function Prayer() {
       },
       () => setLoading(false)
     )
-  }, [])
+  }, [userId])
 
   const changeDate = (days) => {
     const newDate = new Date(selectedDate)
@@ -95,17 +173,17 @@ function Prayer() {
   const checkedCount = Object.values(checked).filter(Boolean).length
 
   const toggle = (key) => {
-  setChecked((prev) => {
-    const updated = { ...prev, [key]: !prev[key] }
-    const count = Object.values(updated).filter(Boolean).length
-    setToast(count > 0 ? getToastMessage(count) : null)
-    return updated
-  })
-}
+    setChecked((prev) => {
+      const updated = { ...prev, [key]: !prev[key] }
+      const count = Object.values(updated).filter(Boolean).length
+      setToast(count > 0 ? getToastMessage(count) : null)
+      saveChecked(updated)
+      return updated
+    })
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
-
       <div className="bg-[#4FA095] px-6 pt-12 pb-8">
         <h1 className="text-white text-2xl font-semibold">Prayer Times</h1>
         {hijriDate && (
@@ -143,38 +221,38 @@ function Prayer() {
         </div>
 
         {isToday && (
-  <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-    <div className="flex items-center justify-between mb-4">
-      <p className="text-xs text-gray-400 uppercase tracking-wide">Prayer tracker</p>
-      <p className="text-xs text-[#4FA095] font-medium">{checkedCount} / 5</p>
-    </div>
-    <div className="flex justify-between">
-      {trackablePrayers.map((prayer) => (
-        <button
-          key={prayer}
-          onClick={() => toggle(prayer)}
-          className="flex flex-col items-center gap-2"
-        >
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90 ${
-            checked[prayer]
-              ? 'bg-[#4FA095] text-white'
-              : 'bg-gray-100 text-gray-300'
-          }`}>
-            {checked[prayer] ? (
-              <span className="text-sm">✓</span>
-            ) : (
-              <span className="text-sm">○</span>
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-xs text-gray-400 uppercase tracking-wide">Prayer tracker</p>
+              <p className="text-xs text-[#4FA095] font-medium">{checkedCount} / 5</p>
+            </div>
+            <div className="flex justify-between">
+              {trackablePrayers.map((prayer) => (
+                <button
+                  key={prayer}
+                  onClick={() => toggle(prayer)}
+                  className="flex flex-col items-center gap-2"
+                >
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90 ${
+                    checked[prayer]
+                      ? 'bg-[#4FA095] text-white'
+                      : 'bg-gray-100 text-gray-300'
+                  }`}>
+                    {checked[prayer] ? (
+                      <span className="text-sm">✓</span>
+                    ) : (
+                      <span className="text-sm">○</span>
+                    )}
+                  </div>
+                  <span className="text-xs text-gray-400">{prayer.slice(0, 3)}</span>
+                </button>
+              ))}
+            </div>
+            {toast && (
+              <p className="text-sm text-[#4FA095] font-medium mt-4 text-center">{toast}</p>
             )}
           </div>
-          <span className="text-xs text-gray-400">{prayer.slice(0, 3)}</span>
-        </button>
-      ))}
-    </div>
-    {toast && (
-      <p className="text-sm text-[#4FA095] font-medium mt-4 text-center">{toast}</p>
-    )}
-  </div>
-)}
+        )}
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
           <p className="text-xs text-gray-400 uppercase tracking-wide mb-3">Schedule</p>
