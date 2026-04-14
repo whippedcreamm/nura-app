@@ -175,13 +175,15 @@ function Prayer() {
             </div>
             <div className="flex justify-between">
               {trackablePrayers.map((prayer) => (
-                <button key={prayer} onClick={() => toggle(prayer)} className="flex flex-col items-center gap-2">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90 ${checked[prayer] ? 'bg-[#4FA095] text-white' : 'bg-gray-100 text-gray-300'}`}>
-                    {checked[prayer] ? <span className="text-sm">✓</span> : <span className="text-sm">○</span>}
-                  </div>
-                  <span className="text-xs text-gray-400">{prayer.slice(0, 3)}</span>
-                </button>
-              ))}
+  <button key={prayer} onClick={() => toggle(prayer)} className="flex flex-col items-center gap-2">
+    <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90 ${
+      checked[prayer] ? 'bg-[#4FA095] text-white' : 'bg-gray-100 text-gray-300'
+    }`}>
+      {checked[prayer] ? <span className="text-sm">✓</span> : <span className="text-sm">○</span>}
+    </div>
+    <span className="text-xs text-gray-400">{prayer}</span>
+  </button>
+))}
             </div>
             {toast && <p className="text-sm text-[#4FA095] font-medium mt-4 text-center">{toast}</p>}
           </div>

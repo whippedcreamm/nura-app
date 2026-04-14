@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { supabase } from '../lib/supabase'
+import { useAuth } from '../lib/useAuth'
 import Header from '../components/Header'
 
 const phases = {
@@ -37,26 +39,171 @@ const moods = ['😊', '😐', '😢', '😤', '😴', '🤩']
 const flows = ['Spotting', 'Light', 'Medium', 'Heavy']
 
 function Cycle() {
+  const { isGuest, userId } = useAuth()
   const [currentDate] = useState(new Date())
   const [selectedDay, setSelectedDay] = useState(new Date().getDate())
-  const [cycleStart] = useState(1)
-  const [cycleLength] = useState(28)
-  const [periodLength] = useState(7)
   const [logs, setLogs] = useState({})
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  const [cycleSettings, setCycleSettings] = useState({
+    cycleStartDate: null,
+    cycleLength: 28,
+    periodLength: 7,
+  })
+  const [showSettings, setShowSettings] = useState(false)
+  const [settingsInput, setSettingsInput] = useState({
+    cycleStartDate: '',
+    cycleLength: 28,
+    periodLength: 7,
+  })
 
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth()
-
   const monthName = currentDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
-
   const daysInMonth = new Date(year, month + 1, 0).getDate()
   const firstDayOfMonth = new Date(year, month, 1).getDay()
   const days = Array.from({ length: daysInMonth }, (_, i) => i + 1)
   const blanks = Array.from({ length: firstDayOfMonth }, (_, i) => i)
 
+  useEffect(() => {
+    loadData()
+  }, [userId])
+
+  const loadData = async () => {
+    setLoading(true)
+    if (isGuest) {
+      const savedSettings = localStorage.getItem('nura_cycle_settings')
+      const savedLogs = localStorage.getItem('nura_cycle_logs')
+      if (savedSettings) setCycleSettings(JSON.parse(savedSettings))
+      if (savedLogs) setLogs(JSON.parse(savedLogs))
+    } else if (userId) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('cycle_start_date, cycle_length, period_length')
+        .eq('id', userId)
+        .single()
+
+      if (profile) {
+        setCycleSettings({
+          cycleStartDate: profile.cycle_start_date,
+          cycleLength: profile.cycle_length || 28,
+          periodLength: profile.period_length || 7,
+        })
+        setSettingsInput({
+          cycleStartDate: profile.cycle_start_date || '',
+          cycleLength: profile.cycle_length || 28,
+          periodLength: profile.period_length || 7,
+        })
+      }
+
+      const { data: cycleLogs } = await supabase
+        .from('cycle_logs')
+        .select('*')
+        .eq('user_id', userId)
+
+      if (cycleLogs) {
+        const logsMap = {}
+        cycleLogs.forEach((log) => {
+          const day = new Date(log.date).getDate()
+          logsMap[day] = {
+            id: log.id,
+            flow: log.flow,
+            symptoms: log.symptoms || [],
+            mood: log.mood,
+            notes: log.notes,
+          }
+        })
+        setLogs(logsMap)
+      }
+    }
+    setLoading(false)
+  }
+
+  const saveSettings = async () => {
+    const updated = {
+      cycleStartDate: settingsInput.cycleStartDate || null,
+      cycleLength: parseInt(settingsInput.cycleLength),
+      periodLength: parseInt(settingsInput.periodLength),
+    }
+    setCycleSettings(updated)
+
+    if (isGuest) {
+      localStorage.setItem('nura_cycle_settings', JSON.stringify(updated))
+    } else if (userId) {
+      await supabase.from('profiles').update({
+        cycle_start_date: updated.cycleStartDate,
+        cycle_length: updated.cycleLength,
+        period_length: updated.periodLength,
+      }).eq('id', userId)
+    }
+    setShowSettings(false)
+  }
+
+  const saveLog = async (day, updatedLog) => {
+    setSaving(true)
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+
+    if (isGuest) {
+      const updated = { ...logs, [day]: updatedLog }
+      setLogs(updated)
+      localStorage.setItem('nura_cycle_logs', JSON.stringify(updated))
+    } else if (userId) {
+      const existing = logs[day]
+      if (existing?.id) {
+        await supabase.from('cycle_logs').update({
+          flow: updatedLog.flow,
+          symptoms: updatedLog.symptoms,
+          mood: updatedLog.mood,
+          notes: updatedLog.notes,
+        }).eq('id', existing.id)
+      } else {
+        const { data } = await supabase.from('cycle_logs').insert({
+          user_id: userId,
+          date: dateStr,
+          flow: updatedLog.flow,
+          symptoms: updatedLog.symptoms,
+          mood: updatedLog.mood,
+          notes: updatedLog.notes,
+        }).select().single()
+        if (data) updatedLog.id = data.id
+      }
+      setLogs((prev) => ({ ...prev, [day]: updatedLog }))
+    }
+    setSaving(false)
+  }
+
+  const updateLog = (day, field, value) => {
+    const current = logs[day] || {}
+    const updated = { ...current, [field]: value }
+    saveLog(day, updated)
+  }
+
+  const toggleSymptom = (day, symptom) => {
+    const current = logs[day]?.symptoms || []
+    const updated = current.includes(symptom)
+      ? current.filter((s) => s !== symptom)
+      : [...current, symptom]
+    const currentLog = logs[day] || {}
+    saveLog(day, { ...currentLog, symptoms: updated })
+  }
+
   const getPhase = (day) => {
-    const dayOfCycle = ((day - cycleStart + cycleLength) % cycleLength) + 1
-    if (dayOfCycle <= periodLength) return 'menstruation'
+    if (!cycleSettings.cycleStartDate) {
+      const { cycleLength, periodLength } = cycleSettings
+      const dayOfCycle = ((day - 1 + cycleLength) % cycleLength) + 1
+      if (dayOfCycle <= periodLength) return 'menstruation'
+      if (dayOfCycle <= 13) return 'follicular'
+      if (dayOfCycle <= 15) return 'ovulation'
+      return 'luteal'
+    }
+
+    const startDate = new Date(cycleSettings.cycleStartDate)
+    const targetDate = new Date(year, month, day)
+    const diffDays = Math.floor((targetDate - startDate) / (1000 * 60 * 60 * 24))
+    const dayOfCycle = ((diffDays % cycleSettings.cycleLength) + cycleSettings.cycleLength) % cycleSettings.cycleLength + 1
+
+    if (dayOfCycle <= cycleSettings.periodLength) return 'menstruation'
     if (dayOfCycle <= 13) return 'follicular'
     if (dayOfCycle <= 15) return 'ovulation'
     return 'luteal'
@@ -70,31 +217,38 @@ function Cycle() {
   }
 
   const todayPhase = phases[getPhase(currentDate.getDate())]
-
-  const updateLog = (day, field, value) => {
-    setLogs((prev) => ({ ...prev, [day]: { ...prev[day], [field]: value } }))
-  }
-
-  const toggleSymptom = (day, symptom) => {
-    const current = logs[day]?.symptoms || []
-    const updated = current.includes(symptom)
-      ? current.filter((s) => s !== symptom)
-      : [...current, symptom]
-    updateLog(day, 'symptoms', updated)
-  }
-
   const selectedLog = selectedDay ? logs[selectedDay] || {} : null
   const selectedPhase = selectedDay ? phases[getPhase(selectedDay)] : null
+
+  const daysUntilNext = () => {
+    if (!cycleSettings.cycleStartDate) return cycleSettings.cycleLength
+    const startDate = new Date(cycleSettings.cycleStartDate)
+    const today = new Date()
+    const diffDays = Math.floor((today - startDate) / (1000 * 60 * 60 * 24))
+    const dayOfCycle = ((diffDays % cycleSettings.cycleLength) + cycleSettings.cycleLength) % cycleSettings.cycleLength + 1
+    return cycleSettings.cycleLength - dayOfCycle + 1
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Header title="Cycle" subtitle={monthName} />
 
       <div className="px-4 -mt-4 space-y-4">
+
         <div className={`rounded-2xl border p-5 ${todayPhase.bg} ${todayPhase.border}`}>
-          <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">Current phase</p>
-          <p className={`text-base font-semibold ${todayPhase.text}`}>{todayPhase.name}</p>
-          <p className="text-xs text-gray-500 mt-1 leading-relaxed">{todayPhase.description}</p>
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">Current phase</p>
+              <p className={`text-base font-semibold ${todayPhase.text}`}>{todayPhase.name}</p>
+              <p className="text-xs text-gray-500 mt-1 leading-relaxed">{todayPhase.description}</p>
+            </div>
+            <button
+              onClick={() => setShowSettings(true)}
+              className="text-xs text-gray-400 border border-gray-200 rounded-lg px-2 py-1 bg-white"
+            >
+              Setup
+            </button>
+          </div>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
@@ -118,7 +272,7 @@ function Cycle() {
                     ${status === 'period' ? 'bg-rose-400 text-white' : ''}
                     ${status === 'ovulation' ? 'bg-[#4FA095] text-white' : ''}
                     ${status === 'normal' && isToday ? 'border-2 border-[#4FA095] text-[#4FA095] font-semibold' : ''}
-                    ${status === 'normal' && isSelected ? 'bg-[#4FA095]/20 text-[#4FA095]' : ''}
+                    ${status === 'normal' && isSelected && !isToday ? 'bg-[#4FA095]/20 text-[#4FA095]' : ''}
                     ${status === 'normal' && !isToday && !isSelected ? 'text-gray-600 hover:bg-gray-100' : ''}
                   `}
                 >
@@ -134,11 +288,16 @@ function Cycle() {
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
             <div className="flex items-center justify-between mb-4">
               <p className="text-sm font-medium text-gray-800">
-                {new Date(year, month, selectedDay).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
+                {new Date(year, month, selectedDay).toLocaleDateString('en-GB', {
+                  weekday: 'long', day: 'numeric', month: 'long'
+                })}
               </p>
-              <span className={`text-xs px-2 py-1 rounded-full ${selectedPhase.bg} ${selectedPhase.text}`}>
-                {selectedPhase.name}
-              </span>
+              <div className="flex items-center gap-2">
+                {saving && <p className="text-xs text-gray-400">Saving...</p>}
+                <span className={`text-xs px-2 py-1 rounded-full ${selectedPhase.bg} ${selectedPhase.text}`}>
+                  {selectedPhase.name}
+                </span>
+              </div>
             </div>
 
             <div className="space-y-5">
@@ -149,7 +308,11 @@ function Cycle() {
                     <button
                       key={f}
                       onClick={() => updateLog(selectedDay, 'flow', selectedLog?.flow === f ? null : f)}
-                      className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${selectedLog?.flow === f ? 'bg-rose-400 text-white border-rose-400' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}
+                      className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                        selectedLog?.flow === f
+                          ? 'bg-rose-400 text-white border-rose-400'
+                          : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                      }`}
                     >
                       {f}
                     </button>
@@ -164,7 +327,11 @@ function Cycle() {
                     <button
                       key={s}
                       onClick={() => toggleSymptom(selectedDay, s)}
-                      className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${selectedLog?.symptoms?.includes(s) ? 'bg-[#4FA095] text-white border-[#4FA095]' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}
+                      className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                        selectedLog?.symptoms?.includes(s)
+                          ? 'bg-[#4FA095] text-white border-[#4FA095]'
+                          : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                      }`}
                     >
                       {s}
                     </button>
@@ -179,7 +346,9 @@ function Cycle() {
                     <button
                       key={m}
                       onClick={() => updateLog(selectedDay, 'mood', selectedLog?.mood === m ? null : m)}
-                      className={`text-2xl transition-all ${selectedLog?.mood === m ? 'scale-125' : 'opacity-40 hover:opacity-70'}`}
+                      className={`text-2xl transition-all ${
+                        selectedLog?.mood === m ? 'scale-125' : 'opacity-40 hover:opacity-70'
+                      }`}
                     >
                       {m}
                     </button>
@@ -194,17 +363,15 @@ function Cycle() {
           <p className="text-xs text-gray-400 uppercase tracking-wide mb-3">Cycle info</p>
           <div className="grid grid-cols-3 gap-3">
             <div className="text-center">
-              <p className="text-2xl font-semibold text-[#4FA095]">{periodLength}</p>
+              <p className="text-2xl font-semibold text-[#4FA095]">{cycleSettings.periodLength}</p>
               <p className="text-xs text-gray-400 mt-1">Period days</p>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-semibold text-[#4FA095]">{cycleLength}</p>
+              <p className="text-2xl font-semibold text-[#4FA095]">{cycleSettings.cycleLength}</p>
               <p className="text-xs text-gray-400 mt-1">Cycle length</p>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-semibold text-[#4FA095]">
-                {cycleLength - ((currentDate.getDate() - cycleStart + cycleLength) % cycleLength)}
-              </p>
+              <p className="text-2xl font-semibold text-[#4FA095]">{daysUntilNext()}</p>
               <p className="text-xs text-gray-400 mt-1">Days until next</p>
             </div>
           </div>
@@ -227,9 +394,85 @@ function Cycle() {
             </div>
           </div>
         </div>
+
       </div>
 
       <div className="h-8" />
+
+      {showSettings && (
+        <div
+          className="fixed inset-0 z-40 flex items-center justify-center px-6"
+          style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}
+          onClick={() => setShowSettings(false)}
+        >
+          <div
+            className="bg-white rounded-2xl w-full overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-gray-50">
+              <p className="text-sm font-medium text-gray-800">Cycle settings</p>
+              <p className="text-xs text-gray-400 mt-0.5">Set your cycle details for accurate tracking</p>
+            </div>
+
+            <div className="px-5 py-4 space-y-4">
+              <div>
+                <label className="text-xs text-gray-400 uppercase tracking-wide mb-1.5 block">
+                  Last period start date
+                </label>
+                <input
+                  type="date"
+                  value={settingsInput.cycleStartDate}
+                  onChange={(e) => setSettingsInput((prev) => ({ ...prev, cycleStartDate: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 outline-none focus:border-[#4FA095]"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-gray-400 uppercase tracking-wide mb-1.5 block">
+                  Cycle length (days)
+                </label>
+                <input
+                  type="number"
+                  min="21"
+                  max="45"
+                  value={settingsInput.cycleLength}
+                  onChange={(e) => setSettingsInput((prev) => ({ ...prev, cycleLength: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 outline-none focus:border-[#4FA095]"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-gray-400 uppercase tracking-wide mb-1.5 block">
+                  Period length (days)
+                </label>
+                <input
+                  type="number"
+                  min="2"
+                  max="10"
+                  value={settingsInput.periodLength}
+                  onChange={(e) => setSettingsInput((prev) => ({ ...prev, periodLength: e.target.value }))}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 outline-none focus:border-[#4FA095]"
+                />
+              </div>
+            </div>
+
+            <div className="px-5 pb-5 flex gap-3">
+              <button
+                onClick={() => setShowSettings(false)}
+                className="flex-1 border border-gray-200 text-gray-500 text-sm py-3 rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveSettings}
+                className="flex-1 bg-[#4FA095] text-white text-sm py-3 rounded-xl font-medium"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

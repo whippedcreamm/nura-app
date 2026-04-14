@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import { supabase } from '../lib/supabase'
+import { useAuth } from '../lib/useAuth'
 import Header from '../components/Header'
 
 const surahList = [
@@ -38,18 +40,23 @@ const getTodayReminder = (hijri) => {
   return '🤲 May your day be filled with barakah'
 }
 
+const todayStr = () => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 function Dashboard() {
+  const { isGuest, userId } = useAuth()
   const [prayerTimes, setPrayerTimes] = useState(null)
   const [nextPrayer, setNextPrayer] = useState(null)
   const [hijriDate, setHijriDate] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  const greeting = () => {
-    const hour = new Date().getHours()
-    if (hour < 12) return 'Good morning'
-    if (hour < 17) return 'Good afternoon'
-    return 'Good evening'
-  }
+  const [prayerChecked, setPrayerChecked] = useState({ Fajr: false, Dhuhr: false, Asr: false, Maghrib: false, Isha: false })
+  const [worshipChecked, setWorshipChecked] = useState(0)
+  const [worshipTotal, setWorshipTotal] = useState(0)
+  const [streak, setStreak] = useState(0)
+  const [cycleStatus, setCycleStatus] = useState(null)
 
   const prayers = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha']
 
@@ -73,16 +80,100 @@ function Dashboard() {
     return { name: 'Fajr', time: times['Fajr'], countdown: 'tomorrow' }
   }
 
+  const calculateStreak = (logs) => {
+  let streak = 0
+  const today = new Date()
+  for (let i = 0; i < 365; i++) {
+    const d = new Date(today)
+    d.setDate(d.getDate() - i)
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    const log = logs.find((l) => l.date === key)
+    if (log && log.fajr && log.dhuhr && log.asr && log.maghrib && log.isha) {
+      streak++
+    } else if (i > 0) {
+      break
+    }
+  }
+  return streak
+}
+
+  const getPhase = (cycleStartDate, cycleLength, periodLength) => {
+    if (!cycleStartDate) return null
+    const startDate = new Date(cycleStartDate)
+    const today = new Date()
+    const diffDays = Math.floor((today - startDate) / (1000 * 60 * 60 * 24))
+    const dayOfCycle = ((diffDays % cycleLength) + cycleLength) % cycleLength + 1
+    const daysUntilNext = cycleLength - dayOfCycle + 1
+
+    let phase
+    if (dayOfCycle <= periodLength) phase = 'Menstruation'
+    else if (dayOfCycle <= 13) phase = 'Follicular'
+    else if (dayOfCycle <= 15) phase = 'Ovulation'
+    else phase = 'Luteal'
+
+    return { phase, dayOfCycle, daysUntilNext }
+  }
+
+  const loadDashboardData = async () => {
+    const today = todayStr()
+
+    if (isGuest) {
+      const savedPrayer = localStorage.getItem(`nura_prayer_${today}`)
+      if (savedPrayer) setPrayerChecked(JSON.parse(savedPrayer))
+
+      const savedChecked = localStorage.getItem(`nura_worship_checked_${today}`)
+      const savedItems = localStorage.getItem('nura_worship_items')
+      if (savedChecked) setWorshipChecked(JSON.parse(savedChecked).length)
+      if (savedItems) setWorshipTotal(JSON.parse(savedItems).length)
+
+      const savedSettings = localStorage.getItem('nura_cycle_settings')
+      if (savedSettings) {
+        const settings = JSON.parse(savedSettings)
+        const status = getPhase(settings.cycleStartDate, settings.cycleLength, settings.periodLength)
+        setCycleStatus(status)
+      }
+    } else if (userId) {
+      const [prayerRes, worshipItemsRes, worshipLogsRes, prayerLogsRes, profileRes] = await Promise.all([
+        supabase.from('prayer_logs').select('*').eq('user_id', userId).eq('date', today).maybeSingle(),
+        supabase.from('worship_items').select('id').eq('user_id', userId).eq('is_active', true),
+        supabase.from('worship_logs').select('worship_item_id').eq('user_id', userId).eq('date', today).eq('completed', true),
+        supabase.from('prayer_logs').select('*').eq('user_id', userId).order('date', { ascending: false }).limit(365),
+        supabase.from('profiles').select('cycle_start_date, cycle_length, period_length').eq('id', userId).single(),
+      ])
+
+      if (prayerRes.data) {
+        setPrayerChecked({
+          Fajr: prayerRes.data.fajr,
+          Dhuhr: prayerRes.data.dhuhr,
+          Asr: prayerRes.data.asr,
+          Maghrib: prayerRes.data.maghrib,
+          Isha: prayerRes.data.isha,
+        })
+      }
+
+      if (worshipItemsRes.data) setWorshipTotal(worshipItemsRes.data.length)
+      if (worshipLogsRes.data) setWorshipChecked(worshipLogsRes.data.length)
+      if (prayerLogsRes.data) setStreak(calculateStreak(prayerLogsRes.data))
+
+      if (profileRes.data?.cycle_start_date) {
+        const status = getPhase(
+          profileRes.data.cycle_start_date,
+          profileRes.data.cycle_length || 28,
+          profileRes.data.period_length || 7
+        )
+        setCycleStatus(status)
+      }
+    }
+  }
+
   useEffect(() => {
+    loadDashboardData()
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const { latitude, longitude } = pos.coords
         const date = new Date()
-        const day = date.getDate()
-        const month = date.getMonth() + 1
-        const year = date.getFullYear()
         const res = await fetch(
-          `https://api.aladhan.com/v1/timings/${day}-${month}-${year}?latitude=${latitude}&longitude=${longitude}&method=13`
+          `https://api.aladhan.com/v1/timings/${date.getDate()}-${date.getMonth() + 1}-${date.getFullYear()}?latitude=${latitude}&longitude=${longitude}&method=13`
         )
         const data = await res.json()
         const timings = data.data.timings
@@ -93,21 +184,28 @@ function Dashboard() {
       },
       () => setLoading(false)
     )
-  }, [])
+  }, [userId])
 
   const today = new Date().toLocaleDateString('en-GB', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
 
   const dailySurah = getDailySurah()
-  const streakDays = 5
-  const worshipChecked = 3
-  const worshipTotal = 7
+  const prayerCount = Object.values(prayerChecked).filter(Boolean).length
   const worshipProgress = worshipTotal > 0 ? (worshipChecked / worshipTotal) * 100 : 0
+
+  const getCycleStatusText = () => {
+    if (!cycleStatus) return { label: 'Not set up', sub: 'Set up in Cycle tab' }
+    if (cycleStatus.phase === 'Menstruation') return { label: 'Menstruation', sub: `Day ${cycleStatus.dayOfCycle} of cycle` }
+    if (cycleStatus.phase === 'Ovulation') return { label: 'Ovulation', sub: `${cycleStatus.daysUntilNext} days until next period` }
+    return { label: cycleStatus.phase, sub: `${cycleStatus.daysUntilNext} days until next period` }
+  }
+
+  const cycleText = getCycleStatusText()
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header title={greeting()} subtitle={today}>
+      <Header title="Nura" subtitle={today}>
         {hijriDate && (
           <p className="text-[#B2D8D4] text-sm">
             {hijriDate.day} {hijriDate.month.en} {hijriDate.year} H
@@ -121,6 +219,7 @@ function Dashboard() {
       </Header>
 
       <div className="px-4 -mt-4 space-y-4">
+
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
           <p className="text-xs text-gray-400 uppercase tracking-wide mb-3">Next prayer</p>
           {loading ? (
@@ -143,22 +242,24 @@ function Dashboard() {
             <div className="pr-4">
               <div className="flex items-center justify-between mb-3">
                 <p className="text-xs text-gray-400 uppercase tracking-wide">Prayers</p>
-                <p className="text-xs text-[#4FA095] font-medium">0 / 5</p>
+                <p className="text-xs text-[#4FA095] font-medium">{prayerCount} / 5</p>
               </div>
-              <div className="flex justify-between">
-                {prayers.map((prayer) => (
-                  <div key={prayer} className="flex flex-col items-center gap-1.5">
-                    <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center">
-                      <span className="text-gray-300 text-xs">○</span>
-                    </div>
-                    <span className="text-xs text-gray-400">{prayer.slice(0, 3)}</span>
-                  </div>
-                ))}
-              </div>
+              <div className="space-y-2">
+  {prayers.map((prayer) => (
+    <div key={prayer} className="flex items-center justify-between">
+      <span className="text-xs text-gray-500">{prayer}</span>
+      <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
+        prayerChecked[prayer] ? 'bg-[#4FA095]' : 'bg-gray-100'
+      }`}>
+        {prayerChecked[prayer] && <span className="text-white text-xs">✓</span>}
+      </div>
+    </div>
+  ))}
+</div>
             </div>
             <div className="pl-4 flex flex-col justify-center items-center">
               <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">Streak</p>
-              <p className="text-3xl font-semibold text-[#4FA095]">{streakDays}</p>
+              <p className="text-3xl font-semibold text-[#4FA095]">{streak}</p>
               <p className="text-xs text-gray-400 mt-1">days in a row</p>
             </div>
           </div>
@@ -170,20 +271,22 @@ function Dashboard() {
             <p className="text-xs text-[#4FA095] font-medium">{worshipChecked} / {worshipTotal}</p>
           </div>
           <div className="w-full bg-gray-100 rounded-full h-1.5">
-            <div className="bg-[#4FA095] h-1.5 rounded-full transition-all duration-500" style={{ width: `${worshipProgress}%` }} />
+            <div
+              className="bg-[#4FA095] h-1.5 rounded-full transition-all duration-500"
+              style={{ width: `${worshipProgress}%` }}
+            />
           </div>
+          {worshipTotal === 0 && (
+            <p className="text-xs text-gray-400 mt-2">Add worship items in the Worship tab</p>
+          )}
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
           <p className="text-xs text-gray-400 uppercase tracking-wide mb-3">Cycle status</p>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-[#4FA095]">Suci</p>
-              <p className="text-xs text-gray-400 mt-0.5">Day 12 of cycle</p>
-            </div>
-            <div className="text-right">
-              <p className="text-sm font-medium text-gray-700">21 days</p>
-              <p className="text-xs text-gray-400 mt-0.5">until next period</p>
+              <p className="text-sm font-medium text-[#4FA095]">{cycleText.label}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{cycleText.sub}</p>
             </div>
           </div>
         </div>
@@ -204,6 +307,7 @@ function Dashboard() {
             <p className="text-lg text-gray-700 shrink-0">{dailySurah.arabic}</p>
           </div>
         </div>
+
       </div>
 
       <div className="h-8" />
