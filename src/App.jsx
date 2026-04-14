@@ -65,7 +65,7 @@ function App() {
 
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-gray-50 pb-16">
+      <div className="min-h-screen bg-gray-50 pb-16 overflow-y-auto">
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/prayer" element={<Prayer />} />
