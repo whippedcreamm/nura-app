@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/useAuth'
+import Header from '../components/Header'
 
 const presetItems = [
   { preset_id: 1, name: 'Morning dhikr', category: 'Dhikr' },
@@ -144,10 +145,10 @@ function Worship() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-[#4FA095] px-6 pt-12 pb-8">
-        <h1 className="text-white text-2xl font-semibold">Worship & Sunnah</h1>
-        <p className="text-[#B2D8D4] text-sm mt-1">{checkedCount} of {totalCount} completed today</p>
-      </div>
+      <Header
+  title="Worship & Sunnah"
+  subtitle={`${checkedCount} of ${totalCount} completed today`}
+/>
 
       <div className="px-4 -mt-4 space-y-4">
 

@@ -9,6 +9,7 @@ import Cycle from './pages/Cycle'
 import Worship from './pages/Worship'
 import Auth from './pages/Auth'
 import Onboarding from './pages/Onboarding'
+import Profile from './pages/Profile'
 
 function App() {
   const [session, setSession] = useState(null)
@@ -73,6 +74,7 @@ function App() {
           <Route path="/cycle" element={<Cycle />} />
           <Route path="/worship" element={<Worship />} />
           <Route path="*" element={<Navigate to="/" />} />
+          <Route path="/profile" element={<Profile />} />
         </Routes>
         <BottomNav />
       </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../lib/useAuth'
+import Header from '../components/Header'
 
 function Prayer() {
   const { isGuest, userId } = useAuth()
@@ -10,11 +11,7 @@ function Prayer() {
   const [coords, setCoords] = useState(null)
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [checked, setChecked] = useState({
-    Fajr: false,
-    Dhuhr: false,
-    Asr: false,
-    Maghrib: false,
-    Isha: false,
+    Fajr: false, Dhuhr: false, Asr: false, Maghrib: false, Isha: false,
   })
   const [toast, setToast] = useState(null)
 
@@ -50,20 +47,16 @@ function Prayer() {
       if (saved) setChecked(JSON.parse(saved))
     } else if (userId) {
       const today = todayKey()
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('prayer_logs')
         .select('*')
         .eq('user_id', userId)
         .eq('date', today)
         .maybeSingle()
-      console.log('loadChecked:', data, error)
       if (data) {
         setChecked({
-          Fajr: data.fajr,
-          Dhuhr: data.dhuhr,
-          Asr: data.asr,
-          Maghrib: data.maghrib,
-          Isha: data.isha,
+          Fajr: data.fajr, Dhuhr: data.dhuhr, Asr: data.asr,
+          Maghrib: data.maghrib, Isha: data.isha,
         })
       }
     }
@@ -74,41 +67,19 @@ function Prayer() {
       localStorage.setItem(`nura_prayer_${todayKey()}`, JSON.stringify(updated))
     } else if (userId) {
       const today = todayKey()
-
-      const { data: existing, error: fetchError } = await supabase
-        .from('prayer_logs')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('date', today)
-        .maybeSingle()
-
-      console.log('existing:', existing, 'fetchError:', fetchError)
-
+      const { data: existing } = await supabase
+        .from('prayer_logs').select('id').eq('user_id', userId).eq('date', today).maybeSingle()
       if (existing) {
-        const { error: updateError } = await supabase
-          .from('prayer_logs')
-          .update({
-            fajr: updated.Fajr,
-            dhuhr: updated.Dhuhr,
-            asr: updated.Asr,
-            maghrib: updated.Maghrib,
-            isha: updated.Isha,
-          })
-          .eq('id', existing.id)
-        console.log('updateError:', updateError)
+        await supabase.from('prayer_logs').update({
+          fajr: updated.Fajr, dhuhr: updated.Dhuhr, asr: updated.Asr,
+          maghrib: updated.Maghrib, isha: updated.Isha,
+        }).eq('id', existing.id)
       } else {
-        const { error: insertError } = await supabase
-          .from('prayer_logs')
-          .insert({
-            user_id: userId,
-            date: today,
-            fajr: updated.Fajr,
-            dhuhr: updated.Dhuhr,
-            asr: updated.Asr,
-            maghrib: updated.Maghrib,
-            isha: updated.Isha,
-          })
-        console.log('insertError:', insertError)
+        await supabase.from('prayer_logs').insert({
+          user_id: userId, date: today,
+          fajr: updated.Fajr, dhuhr: updated.Dhuhr, asr: updated.Asr,
+          maghrib: updated.Maghrib, isha: updated.Isha,
+        })
       }
     }
   }
@@ -148,14 +119,9 @@ function Prayer() {
 
   const isToday = selectedDate.toDateString() === new Date().toDateString()
 
-  const formatDate = (date) => {
-    return date.toLocaleDateString('en-GB', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    })
-  }
+  const formatDate = (date) => date.toLocaleDateString('en-GB', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  })
 
   const getCurrentPrayer = () => {
     if (!prayerTimes) return null
@@ -184,39 +150,20 @@ function Prayer() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-[#4FA095] px-6 pt-12 pb-8">
-        <h1 className="text-white text-2xl font-semibold">Prayer Times</h1>
-        {hijriDate && (
-          <p className="text-[#B2D8D4] text-sm mt-1">
-            {hijriDate.day} {hijriDate.month.en} {hijriDate.year} H
-          </p>
-        )}
-      </div>
+      <Header
+        title="Prayer Times"
+        subtitle={hijriDate ? `${hijriDate.day} ${hijriDate.month.en} ${hijriDate.year} H` : ''}
+      />
 
       <div className="px-4 -mt-4 space-y-4">
-
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
           <div className="flex items-center justify-between">
-            <button
-              onClick={() => changeDate(-1)}
-              className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500"
-            >
-              ‹
-            </button>
+            <button onClick={() => changeDate(-1)} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500">‹</button>
             <div className="text-center">
-              <p className="text-sm font-medium text-gray-800">
-                {isToday ? 'Today' : formatDate(selectedDate)}
-              </p>
-              {isToday && (
-                <p className="text-xs text-gray-400">{formatDate(selectedDate)}</p>
-              )}
+              <p className="text-sm font-medium text-gray-800">{isToday ? 'Today' : formatDate(selectedDate)}</p>
+              {isToday && <p className="text-xs text-gray-400">{formatDate(selectedDate)}</p>}
             </div>
-            <button
-              onClick={() => changeDate(1)}
-              className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500"
-            >
-              ›
-            </button>
+            <button onClick={() => changeDate(1)} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500">›</button>
           </div>
         </div>
 
@@ -228,29 +175,15 @@ function Prayer() {
             </div>
             <div className="flex justify-between">
               {trackablePrayers.map((prayer) => (
-                <button
-                  key={prayer}
-                  onClick={() => toggle(prayer)}
-                  className="flex flex-col items-center gap-2"
-                >
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90 ${
-                    checked[prayer]
-                      ? 'bg-[#4FA095] text-white'
-                      : 'bg-gray-100 text-gray-300'
-                  }`}>
-                    {checked[prayer] ? (
-                      <span className="text-sm">✓</span>
-                    ) : (
-                      <span className="text-sm">○</span>
-                    )}
+                <button key={prayer} onClick={() => toggle(prayer)} className="flex flex-col items-center gap-2">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all active:scale-90 ${checked[prayer] ? 'bg-[#4FA095] text-white' : 'bg-gray-100 text-gray-300'}`}>
+                    {checked[prayer] ? <span className="text-sm">✓</span> : <span className="text-sm">○</span>}
                   </div>
                   <span className="text-xs text-gray-400">{prayer.slice(0, 3)}</span>
                 </button>
               ))}
             </div>
-            {toast && (
-              <p className="text-sm text-[#4FA095] font-medium mt-4 text-center">{toast}</p>
-            )}
+            {toast && <p className="text-sm text-[#4FA095] font-medium mt-4 text-center">{toast}</p>}
           </div>
         )}
 
@@ -263,38 +196,20 @@ function Prayer() {
               {displayPrayers.map((prayer) => {
                 const isActive = currentPrayer === prayer.key
                 return (
-                  <div
-                    key={prayer.key}
-                    className={`flex items-center justify-between px-3 py-3 rounded-xl ${
-                      isActive ? 'bg-[#4FA095]/10' : ''
-                    }`}
-                  >
+                  <div key={prayer.key} className={`flex items-center justify-between px-3 py-3 rounded-xl ${isActive ? 'bg-[#4FA095]/10' : ''}`}>
                     <div className="flex items-center gap-3">
-                      {isActive && (
-                        <div className="w-1.5 h-5 bg-[#4FA095] rounded-full" />
-                      )}
-                      <span className={`text-sm font-medium ${
-                        isActive ? 'text-[#4FA095]' : 'text-gray-700'
-                      }`}>
-                        {prayer.label}
-                      </span>
+                      {isActive && <div className="w-1.5 h-5 bg-[#4FA095] rounded-full" />}
+                      <span className={`text-sm font-medium ${isActive ? 'text-[#4FA095]' : 'text-gray-700'}`}>{prayer.label}</span>
                     </div>
-                    <span className={`text-sm ${
-                      isActive ? 'text-[#4FA095] font-semibold' : 'text-gray-400'
-                    }`}>
-                      {prayerTimes[prayer.key]}
-                    </span>
+                    <span className={`text-sm ${isActive ? 'text-[#4FA095] font-semibold' : 'text-gray-400'}`}>{prayerTimes[prayer.key]}</span>
                   </div>
                 )
               })}
             </div>
           ) : (
-            <p className="text-gray-400 text-sm text-center py-4">
-              Could not load prayer times. Please allow location access.
-            </p>
+            <p className="text-gray-400 text-sm text-center py-4">Could not load prayer times. Please allow location access.</p>
           )}
         </div>
-
       </div>
 
       <div className="h-8" />

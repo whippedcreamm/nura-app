@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../lib/useAuth'
+import Header from '../components/Header'
 
 function Quran() {
   const { isGuest, userId } = useAuth()
@@ -89,7 +90,7 @@ function Quran() {
     }, 500)
   }
 
-  const handleHoldEnd = (verse) => {
+  const handleHoldEnd = () => {
     if (holdTimer.current) {
       clearTimeout(holdTimer.current)
       holdTimer.current = null
@@ -107,10 +108,7 @@ function Quran() {
       <div className="min-h-screen bg-gray-50">
         <div className="bg-[#4FA095] px-6 pt-12 pb-8">
           <button
-            onClick={() => {
-              setSelectedSurah(null)
-              setContextMenu(null)
-            }}
+            onClick={() => { setSelectedSurah(null); setContextMenu(null) }}
             className="text-[#B2D8D4] text-sm mb-4 flex items-center gap-1"
           >
             ‹ Back
@@ -129,9 +127,7 @@ function Quran() {
               verses.map((verse, index) => (
                 <div
                   key={verse.id}
-                  className={`py-5 px-5 ${
-                    index % 2 === 0 ? 'bg-white' : 'bg-gray-50/70'
-                  } ${index !== verses.length - 1 ? 'border-b border-gray-50' : ''}`}
+                  className={`py-5 px-5 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/70'} ${index !== verses.length - 1 ? 'border-b border-gray-50' : ''}`}
                   onTouchStart={() => handleHoldStart(verse)}
                   onTouchEnd={handleHoldEnd}
                   onTouchCancel={handleHoldEnd}
@@ -144,21 +140,14 @@ function Quran() {
                       <span className="text-xs text-[#4FA095]">🔖</span>
                     )}
                   </div>
-
                   <p className="text-right text-xl leading-loose text-gray-800 mb-2" style={{ fontFamily: 'serif' }}>
                     {verse.text_uthmani}
                   </p>
-
                   {verse.transliteration && (
-                    <p className="text-xs text-gray-400 italic mb-2 leading-relaxed">
-                      {verse.transliteration}
-                    </p>
+                    <p className="text-xs text-gray-400 italic mb-2 leading-relaxed">{verse.transliteration}</p>
                   )}
-
                   {verse.translation && (
-                    <p className="text-sm text-gray-500 leading-relaxed">
-                      {verse.translation.replace(/<[^>]*>/g, '')}
-                    </p>
+                    <p className="text-sm text-gray-500 leading-relaxed">{verse.translation.replace(/<[^>]*>/g, '')}</p>
                   )}
                 </div>
               ))
@@ -172,10 +161,7 @@ function Quran() {
             style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}
             onClick={() => setContextMenu(null)}
           >
-            <div
-              className="bg-white rounded-2xl w-full overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
+            <div className="bg-white rounded-2xl w-full overflow-hidden" onClick={(e) => e.stopPropagation()}>
               <div className="px-5 py-4 border-b border-gray-50">
                 <p className="text-xs text-gray-400 mb-1">Verse {contextMenu.verse_number}</p>
                 <p className="text-base text-gray-800 text-right leading-loose" style={{ fontFamily: 'serif' }}>
@@ -183,10 +169,7 @@ function Quran() {
                 </p>
               </div>
               <button
-                onClick={() => {
-                  saveLastRead(selectedSurah, contextMenu.verse_number)
-                  setContextMenu(null)
-                }}
+                onClick={() => { saveLastRead(selectedSurah, contextMenu.verse_number); setContextMenu(null) }}
                 className="w-full text-left px-5 py-4 text-sm text-gray-700 hover:bg-gray-50 border-b border-gray-50 flex items-center gap-3"
               >
                 <span>📍</span>
@@ -196,30 +179,16 @@ function Quran() {
                 </div>
               </button>
               <button
-                onClick={() => {
-                  toggleBookmark(selectedSurah, contextMenu)
-                  setContextMenu(null)
-                }}
+                onClick={() => { toggleBookmark(selectedSurah, contextMenu); setContextMenu(null) }}
                 className="w-full text-left px-5 py-4 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-3"
               >
                 <span>🔖</span>
                 <div>
-                  <p className="font-medium">
-                    {isBookmarked(selectedSurah.id, contextMenu.verse_number)
-                      ? 'Remove bookmark'
-                      : 'Add bookmark'}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    {isBookmarked(selectedSurah.id, contextMenu.verse_number)
-                      ? 'Remove from your saved verses'
-                      : 'Save this verse for later'}
-                  </p>
+                  <p className="font-medium">{isBookmarked(selectedSurah.id, contextMenu.verse_number) ? 'Remove bookmark' : 'Add bookmark'}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{isBookmarked(selectedSurah.id, contextMenu.verse_number) ? 'Remove from your saved verses' : 'Save this verse for later'}</p>
                 </div>
               </button>
-              <button
-                onClick={() => setContextMenu(null)}
-                className="w-full text-center px-5 py-4 text-sm text-gray-400 border-t border-gray-50"
-              >
+              <button onClick={() => setContextMenu(null)} className="w-full text-center px-5 py-4 text-sm text-gray-400 border-t border-gray-50">
                 Cancel
               </button>
             </div>
@@ -231,13 +200,9 @@ function Quran() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-[#4FA095] px-6 pt-12 pb-8">
-        <h1 className="text-white text-2xl font-semibold">Qur'an</h1>
-        <p className="text-[#B2D8D4] text-sm mt-1">114 Surahs</p>
-      </div>
+      <Header title="Qur'an" subtitle="114 Surahs" />
 
       <div className="px-4 -mt-4 space-y-4">
-
         {lastRead && (
           <div
             className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center justify-between cursor-pointer"
@@ -252,30 +217,6 @@ function Quran() {
               <p className="text-xs text-gray-400">Verse {lastRead.verseNumber}</p>
             </div>
             <span className="text-[#4FA095] text-lg">›</span>
-          </div>
-        )}
-
-        {bookmarks.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-            <p className="text-xs text-gray-400 uppercase tracking-wide mb-3">Bookmarks</p>
-            <div className="space-y-2">
-              {bookmarks.slice(0, 3).map((b) => (
-                <div
-                  key={b.key}
-                  className="flex items-center justify-between cursor-pointer"
-                  onClick={() => {
-                    const surah = surahs.find((s) => s.id === b.surahId)
-                    if (surah) openSurah(surah)
-                  }}
-                >
-                  <div>
-                    <p className="text-sm font-medium text-gray-800">{b.surahName}</p>
-                    <p className="text-xs text-gray-400">Verse {b.verseNumber}</p>
-                  </div>
-                  <span className="text-gray-300 text-lg">›</span>
-                </div>
-              ))}
-            </div>
           </div>
         )}
 
@@ -297,9 +238,7 @@ function Quran() {
               <div
                 key={surah.id}
                 onClick={() => openSurah(surah)}
-                className={`flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-gray-50 transition-colors ${
-                  index !== filtered.length - 1 ? 'border-b border-gray-50' : ''
-                }`}
+                className={`flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-gray-50 transition-colors ${index !== filtered.length - 1 ? 'border-b border-gray-50' : ''}`}
               >
                 <div className="flex items-center gap-4">
                   <div className="w-8 h-8 rounded-full bg-[#4FA095]/10 flex items-center justify-center">
@@ -307,9 +246,7 @@ function Quran() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-800">{surah.name_simple}</p>
-                    <p className="text-xs text-gray-400">
-                      {surah.translated_name.name} · {surah.verses_count} verses
-                    </p>
+                    <p className="text-xs text-gray-400">{surah.translated_name.name} · {surah.verses_count} verses</p>
                   </div>
                 </div>
                 <p className="text-base text-gray-700">{surah.name_arabic}</p>
@@ -317,7 +254,6 @@ function Quran() {
             ))
           )}
         </div>
-
       </div>
 
       <div className="h-8" />

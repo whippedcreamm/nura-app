@@ -1,9 +1,9 @@
 import { useState } from 'react'
+import Header from '../components/Header'
 
 const phases = {
   menstruation: {
     name: 'Menstruation',
-    color: 'rose',
     bg: 'bg-rose-50',
     text: 'text-rose-500',
     border: 'border-rose-100',
@@ -11,7 +11,6 @@ const phases = {
   },
   follicular: {
     name: 'Follicular',
-    color: 'amber',
     bg: 'bg-amber-50',
     text: 'text-amber-500',
     border: 'border-amber-100',
@@ -19,7 +18,6 @@ const phases = {
   },
   ovulation: {
     name: 'Ovulation',
-    color: 'teal',
     bg: 'bg-[#4FA095]/10',
     text: 'text-[#4FA095]',
     border: 'border-[#4FA095]/20',
@@ -27,7 +25,6 @@ const phases = {
   },
   luteal: {
     name: 'Luteal',
-    color: 'purple',
     bg: 'bg-purple-50',
     text: 'text-purple-500',
     border: 'border-purple-100',
@@ -45,16 +42,12 @@ function Cycle() {
   const [cycleStart] = useState(1)
   const [cycleLength] = useState(28)
   const [periodLength] = useState(7)
-
   const [logs, setLogs] = useState({})
 
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth()
 
-  const monthName = currentDate.toLocaleDateString('en-GB', {
-    month: 'long',
-    year: 'numeric',
-  })
+  const monthName = currentDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
 
   const daysInMonth = new Date(year, month + 1, 0).getDate()
   const firstDayOfMonth = new Date(year, month, 1).getDay()
@@ -79,13 +72,7 @@ function Cycle() {
   const todayPhase = phases[getPhase(currentDate.getDate())]
 
   const updateLog = (day, field, value) => {
-    setLogs((prev) => ({
-      ...prev,
-      [day]: {
-        ...prev[day],
-        [field]: value,
-      },
-    }))
+    setLogs((prev) => ({ ...prev, [day]: { ...prev[day], [field]: value } }))
   }
 
   const toggleSymptom = (day, symptom) => {
@@ -101,13 +88,9 @@ function Cycle() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-[#4FA095] px-6 pt-12 pb-8">
-        <h1 className="text-white text-2xl font-semibold">Cycle</h1>
-        <p className="text-[#B2D8D4] text-sm mt-1">{monthName}</p>
-      </div>
+      <Header title="Cycle" subtitle={monthName} />
 
       <div className="px-4 -mt-4 space-y-4">
-
         <div className={`rounded-2xl border p-5 ${todayPhase.bg} ${todayPhase.border}`}>
           <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">Current phase</p>
           <p className={`text-base font-semibold ${todayPhase.text}`}>{todayPhase.name}</p>
@@ -121,15 +104,12 @@ function Cycle() {
             ))}
           </div>
           <div className="grid grid-cols-7 gap-y-1">
-            {blanks.map((b) => (
-              <div key={`blank-${b}`} />
-            ))}
+            {blanks.map((b) => <div key={`blank-${b}`} />)}
             {days.map((day) => {
               const status = getDayStatus(day)
               const isToday = day === currentDate.getDate()
               const isSelected = day === selectedDay
               const hasLog = logs[day] && (logs[day].mood || logs[day].flow || (logs[day].symptoms?.length > 0))
-
               return (
                 <button
                   key={day}
@@ -143,9 +123,7 @@ function Cycle() {
                   `}
                 >
                   {day}
-                  {hasLog && (
-                    <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#4FA095]" />
-                  )}
+                  {hasLog && <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#4FA095]" />}
                 </button>
               )
             })}
@@ -156,9 +134,7 @@ function Cycle() {
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
             <div className="flex items-center justify-between mb-4">
               <p className="text-sm font-medium text-gray-800">
-                {new Date(year, month, selectedDay).toLocaleDateString('en-GB', {
-                  weekday: 'long', day: 'numeric', month: 'long'
-                })}
+                {new Date(year, month, selectedDay).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
               </p>
               <span className={`text-xs px-2 py-1 rounded-full ${selectedPhase.bg} ${selectedPhase.text}`}>
                 {selectedPhase.name}
@@ -173,11 +149,7 @@ function Cycle() {
                     <button
                       key={f}
                       onClick={() => updateLog(selectedDay, 'flow', selectedLog?.flow === f ? null : f)}
-                      className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                        selectedLog?.flow === f
-                          ? 'bg-rose-400 text-white border-rose-400'
-                          : 'border-gray-200 text-gray-500 hover:border-gray-300'
-                      }`}
+                      className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${selectedLog?.flow === f ? 'bg-rose-400 text-white border-rose-400' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}
                     >
                       {f}
                     </button>
@@ -192,11 +164,7 @@ function Cycle() {
                     <button
                       key={s}
                       onClick={() => toggleSymptom(selectedDay, s)}
-                      className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                        selectedLog?.symptoms?.includes(s)
-                          ? 'bg-[#4FA095] text-white border-[#4FA095]'
-                          : 'border-gray-200 text-gray-500 hover:border-gray-300'
-                      }`}
+                      className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${selectedLog?.symptoms?.includes(s) ? 'bg-[#4FA095] text-white border-[#4FA095]' : 'border-gray-200 text-gray-500 hover:border-gray-300'}`}
                     >
                       {s}
                     </button>
@@ -211,11 +179,7 @@ function Cycle() {
                     <button
                       key={m}
                       onClick={() => updateLog(selectedDay, 'mood', selectedLog?.mood === m ? null : m)}
-                      className={`text-2xl transition-all ${
-                        selectedLog?.mood === m
-                          ? 'scale-125'
-                          : 'opacity-40 hover:opacity-70'
-                      }`}
+                      className={`text-2xl transition-all ${selectedLog?.mood === m ? 'scale-125' : 'opacity-40 hover:opacity-70'}`}
                     >
                       {m}
                     </button>
@@ -261,15 +225,8 @@ function Cycle() {
               <div className="w-4 h-4 rounded-full border-2 border-[#4FA095]" />
               <p className="text-xs text-gray-600">Today</p>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="w-4 h-4 rounded-full bg-gray-100 flex items-center justify-center">
-                <div className="w-1 h-1 rounded-full bg-[#4FA095]" />
-              </div>
-              <p className="text-xs text-gray-600">Has log</p>
-            </div>
           </div>
         </div>
-
       </div>
 
       <div className="h-8" />

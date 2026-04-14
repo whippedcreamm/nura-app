@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import Header from '../components/Header'
 
 const surahList = [
   { id: 1, name: 'Al-Fatihah', verses: 7, description: 'The opening prayer — a conversation between you and Allah.' },
@@ -17,10 +18,7 @@ const surahList = [
 
 const getDailySurah = () => {
   const today = new Date()
-  const seed =
-    today.getFullYear() * 10000 +
-    (today.getMonth() + 1) * 100 +
-    today.getDate()
+  const seed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate()
   return surahList[seed % surahList.length]
 }
 
@@ -28,7 +26,6 @@ const getTodayReminder = (hijri) => {
   const day = parseInt(hijri.day)
   const month = parseInt(hijri.month.number)
   const weekday = new Date().getDay()
-
   if (day === 1 && month === 10) return '🎉 Eid al-Fitr — no fasting today'
   if (day === 10 && month === 12) return '🎉 Eid al-Adha — no fasting today'
   if ([11, 12, 13].includes(day) && month === 12) return '🚫 Ayyam al-Tashriq — fasting is prohibited'
@@ -99,10 +96,7 @@ function Dashboard() {
   }, [])
 
   const today = new Date().toLocaleDateString('en-GB', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   })
 
   const dailySurah = getDailySurah()
@@ -113,24 +107,20 @@ function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-[#4FA095] px-6 pt-12 pb-10">
-        <p className="text-[#B2D8D4] text-sm">{greeting()}</p>
-        <h1 className="text-white text-2xl font-semibold mt-1">Nura</h1>
-        <p className="text-[#B2D8D4] text-sm mt-1">{today}</p>
+      <Header title={greeting()} subtitle={today}>
         {hijriDate && (
-          <>
-            <p className="text-[#B2D8D4] text-sm">
-              {hijriDate.day} {hijriDate.month.en} {hijriDate.year} H
-            </p>
-            <p className="text-white/80 text-xs mt-3 bg-white/10 px-3 py-1.5 rounded-full inline-block">
-              {getTodayReminder(hijriDate)}
-            </p>
-          </>
+          <p className="text-[#B2D8D4] text-sm">
+            {hijriDate.day} {hijriDate.month.en} {hijriDate.year} H
+          </p>
         )}
-      </div>
+        {hijriDate && (
+          <p className="text-white/80 text-xs mt-3 bg-white/10 px-3 py-1.5 rounded-full inline-block">
+            {getTodayReminder(hijriDate)}
+          </p>
+        )}
+      </Header>
 
       <div className="px-4 -mt-4 space-y-4">
-
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
           <p className="text-xs text-gray-400 uppercase tracking-wide mb-3">Next prayer</p>
           {loading ? (
@@ -180,10 +170,7 @@ function Dashboard() {
             <p className="text-xs text-[#4FA095] font-medium">{worshipChecked} / {worshipTotal}</p>
           </div>
           <div className="w-full bg-gray-100 rounded-full h-1.5">
-            <div
-              className="bg-[#4FA095] h-1.5 rounded-full transition-all duration-500"
-              style={{ width: `${worshipProgress}%` }}
-            />
+            <div className="bg-[#4FA095] h-1.5 rounded-full transition-all duration-500" style={{ width: `${worshipProgress}%` }} />
           </div>
         </div>
 
@@ -217,7 +204,6 @@ function Dashboard() {
             <p className="text-lg text-gray-700 shrink-0">{dailySurah.arabic}</p>
           </div>
         </div>
-
       </div>
 
       <div className="h-8" />
