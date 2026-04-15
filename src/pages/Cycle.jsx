@@ -252,37 +252,52 @@ function Cycle() {
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-          <div className="grid grid-cols-7 mb-2">
-            {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
-              <p key={d} className="text-center text-xs text-gray-400 font-medium py-1">{d}</p>
-            ))}
-          </div>
-          <div className="grid grid-cols-7 gap-y-1">
-            {blanks.map((b) => <div key={`blank-${b}`} />)}
-            {days.map((day) => {
-              const status = getDayStatus(day)
-              const isToday = day === currentDate.getDate()
-              const isSelected = day === selectedDay
-              const hasLog = logs[day] && (logs[day].mood || logs[day].flow || (logs[day].symptoms?.length > 0))
-              return (
-                <button
-                  key={day}
-                  onClick={() => setSelectedDay(isSelected ? null : day)}
-                  className={`relative aspect-square flex items-center justify-center rounded-full text-sm mx-auto w-8 h-8 transition-colors
-                    ${status === 'period' ? 'bg-rose-400 text-white' : ''}
-                    ${status === 'ovulation' ? 'bg-[#4FA095] text-white' : ''}
-                    ${status === 'normal' && isToday ? 'border-2 border-[#4FA095] text-[#4FA095] font-semibold' : ''}
-                    ${status === 'normal' && isSelected && !isToday ? 'bg-[#4FA095]/20 text-[#4FA095]' : ''}
-                    ${status === 'normal' && !isToday && !isSelected ? 'text-gray-600 hover:bg-gray-100' : ''}
-                  `}
-                >
-                  {day}
-                  {hasLog && <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#4FA095]" />}
-                </button>
-              )
-            })}
-          </div>
-        </div>
+  {!cycleSettings.cycleStartDate ? (
+    <div className="text-center py-6">
+      <p className="text-gray-500 text-sm font-medium">Your cycle isn't set up yet</p>
+      <p className="text-gray-400 text-xs mt-1 mb-4">Add your last period date to start tracking</p>
+      <button
+        onClick={() => setShowSettings(true)}
+        className="bg-[#4FA095] text-white text-sm px-6 py-2.5 rounded-xl font-medium"
+      >
+        Set up cycle
+      </button>
+    </div>
+  ) : (
+    <>
+      <div className="grid grid-cols-7 mb-2">
+        {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map((d) => (
+          <p key={d} className="text-center text-xs text-gray-400 font-medium py-1">{d}</p>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-y-1">
+        {blanks.map((b) => <div key={`blank-${b}`} />)}
+        {days.map((day) => {
+          const status = getDayStatus(day)
+          const isToday = day === currentDate.getDate()
+          const isSelected = day === selectedDay
+          const hasLog = logs[day] && (logs[day].mood || logs[day].flow || (logs[day].symptoms?.length > 0))
+          return (
+            <button
+              key={day}
+              onClick={() => setSelectedDay(isSelected ? null : day)}
+              className={`relative aspect-square flex items-center justify-center rounded-full text-sm mx-auto w-8 h-8 transition-colors
+                ${status === 'period' ? 'bg-rose-400 text-white' : ''}
+                ${status === 'ovulation' ? 'bg-[#4FA095] text-white' : ''}
+                ${status === 'normal' && isToday ? 'border-2 border-[#4FA095] text-[#4FA095] font-semibold' : ''}
+                ${status === 'normal' && isSelected && !isToday ? 'bg-[#4FA095]/20 text-[#4FA095]' : ''}
+                ${status === 'normal' && !isToday && !isSelected ? 'text-gray-600 hover:bg-gray-100' : ''}
+              `}
+            >
+              {day}
+              {hasLog && <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#4FA095]" />}
+            </button>
+          )
+        })}
+      </div>
+    </>
+  )}
+</div>
 
         {selectedDay && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
